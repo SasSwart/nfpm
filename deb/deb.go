@@ -26,12 +26,14 @@ import (
 	"github.com/ulikunitz/xz"
 )
 
-const packagerName = "deb"
+var debPackager = &Deb{
+	Name: "deb",
+}
 
 // nolint: gochecknoinits
 func init() {
-	nfpm.RegisterPackager(packagerName, Default)
-	nfpm.RegisterPackager("dsc", &Dsc{})
+	nfpm.RegisterPackager(debPackager.Name, debPackager)
+	nfpm.RegisterPackager(sourcePackager.Name, sourcePackager)
 }
 
 // nolint: gochecknoglobals
@@ -56,12 +58,10 @@ func ensureValidArch(info *nfpm.Info) *nfpm.Info {
 	return info
 }
 
-// Default deb packager.
-// nolint: gochecknoglobals
-var Default = &Deb{}
-
 // Deb is a deb packager implementation.
-type Deb struct{}
+type Deb struct {
+	Name string
+}
 
 // ConventionalFileName returns a file name according
 // to the conventions for debian packages. See:
@@ -100,12 +100,12 @@ func (d *Deb) Package(info *nfpm.Info, deb io.Writer) (err error) { // nolint: f
 	// Set up some deb specific defaults
 	d.SetPackagerDefaults(info)
 
-	dataTarball, md5sums, instSize, dataTarballName, err := createDataTarball(info)
+	dataTarball, md5sums, instSize, dataTarballName, err := d.createDataTarball(info)
 	if err != nil {
 		return err
 	}
 
-	controlTarGz, err := createControl(instSize, md5sums, info)
+	controlTarGz, err := d.createControl(instSize, md5sums, info)
 	if err != nil {
 		return err
 	}
@@ -284,7 +284,7 @@ type nopCloser struct {
 
 func (nopCloser) Close() error { return nil }
 
-func createDataTarball(info *nfpm.Info) (dataTarBall, md5sums []byte,
+func (d *Deb) createDataTarball(info *nfpm.Info) (dataTarBall, md5sums []byte,
 	instSize int64, name string, err error,
 ) {
 	var (
@@ -312,7 +312,7 @@ func createDataTarball(info *nfpm.Info) (dataTarBall, md5sums []byte,
 	// the writer is properly closed later, this is just in case that we error out
 	defer dataTarballWriteCloser.Close() // nolint: errcheck
 
-	md5sums, instSize, err = fillDataTar(info, dataTarballWriteCloser)
+	md5sums, instSize, err = d.fillDataTar(info, dataTarballWriteCloser)
 	if err != nil {
 		return nil, nil, 0, "", err
 	}
@@ -324,7 +324,7 @@ func createDataTarball(info *nfpm.Info) (dataTarBall, md5sums []byte,
 	return dataTarball.Bytes(), md5sums, instSize, name, nil
 }
 
-func fillDataTar(info *nfpm.Info, w io.Writer) (md5sums []byte, instSize int64, err error) {
+func (d *Deb) fillDataTar(info *nfpm.Info, w io.Writer) (md5sums []byte, instSize int64, err error) {
 	out := tar.NewWriter(w)
 
 	// the writer is properly closed later, this is just in case that we have
@@ -333,7 +333,7 @@ func fillDataTar(info *nfpm.Info, w io.Writer) (md5sums []byte, instSize int64, 
 
 	created := map[string]bool{}
 
-	md5buf, instSize, err := createFilesInsideDataTar(info, out, created)
+	md5buf, instSize, err := d.createFilesInsideDataTar(info, out, created)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -355,7 +355,7 @@ func createSymlinkInsideTar(file *files.Content, out *tar.Writer) error {
 	})
 }
 
-func createFilesInsideDataTar(info *nfpm.Info, tw *tar.Writer,
+func (d *Deb) createFilesInsideDataTar(info *nfpm.Info, tw *tar.Writer,
 	created map[string]bool,
 ) (md5buf bytes.Buffer, instSize int64, err error) {
 	// create explicit directories first
@@ -366,7 +366,7 @@ func createFilesInsideDataTar(info *nfpm.Info, tw *tar.Writer,
 		}
 
 		// only consider contents for this packager
-		if file.Packager != "" && file.Packager != packagerName {
+		if file.Packager != "" && file.Packager != d.Name {
 			continue
 		}
 
@@ -399,7 +399,7 @@ func createFilesInsideDataTar(info *nfpm.Info, tw *tar.Writer,
 	// create files and implicit directories
 	for _, file := range info.Contents {
 		// only consider contents for this packager
-		if file.Packager != "" && file.Packager != packagerName {
+		if file.Packager != "" && file.Packager != d.Name {
 			continue
 		}
 		// create implicit directory structure below the current content
@@ -537,7 +537,7 @@ func formatChangelog(info *nfpm.Info) (string, error) {
 }
 
 // nolint:funlen
-func createControl(instSize int64, md5sums []byte, info *nfpm.Info) (controlTarGz []byte, err error) {
+func (d *Deb) createControl(instSize int64, md5sums []byte, info *nfpm.Info) (controlTarGz []byte, err error) {
 	var buf bytes.Buffer
 	compress := gzip.NewWriter(&buf)
 	out := tar.NewWriter(compress)
@@ -557,7 +557,7 @@ func createControl(instSize int64, md5sums []byte, info *nfpm.Info) (controlTarG
 	filesToCreate := map[string][]byte{
 		"control":   body.Bytes(),
 		"md5sums":   md5sums,
-		"conffiles": conffiles(info),
+		"conffiles": d.conffiles(info),
 	}
 
 	if info.Changelog != "" {
@@ -725,11 +725,11 @@ func pathsToCreate(dst string) []string {
 	return result
 }
 
-func conffiles(info *nfpm.Info) []byte {
+func (d *Deb) conffiles(info *nfpm.Info) []byte {
 	// nolint: prealloc
 	var confs []string
 	for _, file := range info.Contents {
-		if file.Packager != "" && file.Packager != packagerName {
+		if file.Packager != "" && file.Packager != d.Name {
 			continue
 		}
 		switch file.Type {

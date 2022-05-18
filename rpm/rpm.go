@@ -40,19 +40,21 @@ const (
 {{- end}}{{- end}}`
 )
 
-const packagerName = "rpm"
-
 // nolint: gochecknoinits
 func init() {
-	nfpm.RegisterPackager(packagerName, Default)
+	nfpm.RegisterPackager(Default.Name, Default)
 }
 
 // Default RPM packager.
 // nolint: gochecknoglobals
-var Default = &RPM{}
+var Default = &RPM{
+	Name: "rpm",
+}
 
 // RPM is a RPM packager implementation.
-type RPM struct{}
+type RPM struct {
+	Name string
+}
 
 // https://docs.fedoraproject.org/ro/Fedora_Draft_Documentation/0.1/html/RPM_Guide/ch01s03.html
 // nolint: gochecknoglobals
@@ -95,7 +97,7 @@ func (*RPM) ConventionalFileName(info *nfpm.Info) string {
 }
 
 // Package writes a new RPM package to the given writer using the given info.
-func (*RPM) Package(info *nfpm.Info, w io.Writer) (err error) {
+func (r *RPM) Package(info *nfpm.Info, w io.Writer) (err error) {
 	var (
 		meta *rpmpack.RPMMetaData
 		rpm  *rpmpack.RPM
@@ -116,7 +118,7 @@ func (*RPM) Package(info *nfpm.Info, w io.Writer) (err error) {
 		rpm.SetPGPSigner(sign.PGPSignerWithKeyID(info.RPM.Signature.KeyFile, info.RPM.Signature.KeyPassphrase, info.RPM.Signature.KeyID))
 	}
 
-	if err = createFilesInsideRPM(info, rpm); err != nil {
+	if err = r.createFilesInsideRPM(info, rpm); err != nil {
 		return err
 	}
 
@@ -328,9 +330,9 @@ func addScriptFiles(info *nfpm.Info, rpm *rpmpack.RPM) error {
 	return nil
 }
 
-func createFilesInsideRPM(info *nfpm.Info, rpm *rpmpack.RPM) (err error) {
+func (r *RPM) createFilesInsideRPM(info *nfpm.Info, rpm *rpmpack.RPM) (err error) {
 	for _, content := range info.Contents {
-		if content.Packager != "" && content.Packager != packagerName {
+		if content.Packager != "" && content.Packager != r.Name {
 			continue
 		}
 

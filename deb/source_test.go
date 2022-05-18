@@ -13,7 +13,7 @@ func TestSource(t *testing.T) {
 		t.Run(arch, func(t *testing.T) {
 			info := exampleInfo()
 			info.Arch = arch
-			err := (&Dsc{}).Package(info, ioutil.Discard)
+			err := sourcePackager.Package(info, ioutil.Discard)
 			require.NoError(t, err)
 		})
 	}

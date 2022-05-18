@@ -92,7 +92,7 @@ func TestDeb(t *testing.T) {
 		t.Run(arch, func(t *testing.T) {
 			info := exampleInfo()
 			info.Arch = arch
-			err := Default.Package(info, ioutil.Discard)
+			err := debPackager.Package(info, ioutil.Discard)
 			require.NoError(t, err)
 		})
 	}
@@ -110,7 +110,7 @@ func extractDebVersion(deb *bytes.Buffer) string {
 func TestDebVersionWithDash(t *testing.T) {
 	info := exampleInfo()
 	info.Version = "1.0.0-beta"
-	err := Default.Package(info, ioutil.Discard)
+	err := debPackager.Package(info, ioutil.Discard)
 	require.NoError(t, err)
 }
 
@@ -298,7 +298,7 @@ func TestVersionControl(t *testing.T) {
 func TestDebFileDoesNotExist(t *testing.T) {
 	abs, err := filepath.Abs("../testdata/whatever.confzzz")
 	require.NoError(t, err)
-	err = Default.Package(
+	err = debPackager.Package(
 		nfpm.WithDefaults(&nfpm.Info{
 			Name:        "foo",
 			Arch:        "amd64",
@@ -332,7 +332,7 @@ func TestDebFileDoesNotExist(t *testing.T) {
 }
 
 func TestDebNoFiles(t *testing.T) {
-	err := Default.Package(
+	err := debPackager.Package(
 		nfpm.WithDefaults(&nfpm.Info{
 			Name:        "foo",
 			Arch:        "amd64",
@@ -355,7 +355,7 @@ func TestDebNoFiles(t *testing.T) {
 }
 
 func TestDebNoInfo(t *testing.T) {
-	err := Default.Package(nfpm.WithDefaults(&nfpm.Info{}), ioutil.Discard)
+	err := debPackager.Package(nfpm.WithDefaults(&nfpm.Info{}), ioutil.Discard)
 	require.Error(t, err)
 }
 
@@ -379,7 +379,7 @@ func TestConffiles(t *testing.T) {
 	})
 	err := info.Validate()
 	require.NoError(t, err)
-	out := conffiles(info)
+	out := debPackager.conffiles(info)
 	require.Equal(t, "/etc/fake\n", string(out), "should have a trailing empty line")
 }
 
@@ -533,7 +533,7 @@ func TestDEBConventionalFileName(t *testing.T) {
 		info.Prerelease = testCase.Prerelease
 		info.VersionMetadata = testCase.Metadata
 
-		require.Equal(t, testCase.Expected, Default.ConventionalFileName(info))
+		require.Equal(t, testCase.Expected, debPackager.ConventionalFileName(info))
 	}
 }
 
@@ -548,7 +548,7 @@ func TestDebChangelogControl(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	controlTarGz, err := createControl(0, []byte{}, info)
+	controlTarGz, err := debPackager.createControl(0, []byte{}, info)
 	require.NoError(t, err)
 
 	controlChangelog := extractFileFromTar(t, inflate(t, "gz", controlTarGz), "changelog")
@@ -568,7 +568,7 @@ func TestDebNoChangelogControlWithoutChangelogConfigured(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	controlTarGz, err := createControl(0, []byte{}, info)
+	controlTarGz, err := debPackager.createControl(0, []byte{}, info)
 	require.NoError(t, err)
 
 	require.False(t, tarContains(t, inflate(t, "gz", controlTarGz), "changelog"))
@@ -585,7 +585,7 @@ func TestDebChangelogData(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	dataTarball, _, _, dataTarballName, err := createDataTarball(info)
+	dataTarball, _, _, dataTarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
 	changelogName := fmt.Sprintf("/usr/share/doc/%s/changelog.gz", info.Name)
@@ -608,7 +608,7 @@ func TestDebNoChangelogDataWithoutChangelogConfigured(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	dataTarball, _, _, dataTarballName, err := createDataTarball(info)
+	dataTarball, _, _, dataTarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
 	changelogName := fmt.Sprintf("/usr/share/doc/%s/changelog.gz", info.Name)
@@ -640,7 +640,7 @@ func TestDebTriggers(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	controlTarGz, err := createControl(0, []byte{}, info)
+	controlTarGz, err := debPackager.createControl(0, []byte{}, info)
 	require.NoError(t, err)
 
 	controlTriggers := extractFileFromTar(t, inflate(t, "gz", controlTarGz), "triggers")
@@ -679,7 +679,7 @@ func TestDebNoTriggersInControlIfNoneProvided(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	controlTarGz, err := createControl(0, []byte{}, info)
+	controlTarGz, err := debPackager.createControl(0, []byte{}, info)
 	require.NoError(t, err)
 
 	require.False(t, tarContains(t, inflate(t, "gz", controlTarGz), "triggers"))
@@ -714,7 +714,7 @@ func TestSymlink(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	dataTarball, _, _, dataTarballName, err := createDataTarball(info)
+	dataTarball, _, _, dataTarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
 	packagedSymlinkHeader := extractFileHeaderFromTar(t,
@@ -738,11 +738,11 @@ func TestEnsureRelativePrefixInTarballs(t *testing.T) {
 	err := info.Validate()
 	require.NoError(t, err)
 
-	dataTarball, md5sums, instSize, tarballName, err := createDataTarball(info)
+	dataTarball, md5sums, instSize, tarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 	testRelativePathPrefixInTar(t, inflate(t, tarballName, dataTarball))
 
-	controlTarGz, err := createControl(instSize, md5sums, info)
+	controlTarGz, err := debPackager.createControl(instSize, md5sums, info)
 	require.NoError(t, err)
 	testRelativePathPrefixInTar(t, inflate(t, "gz", controlTarGz))
 }
@@ -760,10 +760,10 @@ func TestMD5Sums(t *testing.T) {
 		}
 	}
 
-	dataTarball, md5sums, instSize, tarballName, err := createDataTarball(info)
+	dataTarball, md5sums, instSize, tarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
-	controlTarGz, err := createControl(instSize, md5sums, info)
+	controlTarGz, err := debPackager.createControl(instSize, md5sums, info)
 	require.NoError(t, err)
 
 	md5sumsFile := extractFileFromTar(t, inflate(t, "gz", controlTarGz), "./md5sums")
@@ -817,7 +817,7 @@ func TestDirectories(t *testing.T) {
 
 	require.NoError(t, info.Validate())
 
-	deflatedDataTarball, _, _, dataTarballName, err := createDataTarball(info)
+	deflatedDataTarball, _, _, dataTarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 	dataTarball := inflate(t, dataTarballName, deflatedDataTarball)
 
@@ -879,7 +879,7 @@ func TestNoDuplicateContents(t *testing.T) {
 
 	require.NoError(t, info.Validate())
 
-	deflatedDataTarball, _, _, dataTarballName, err := createDataTarball(info)
+	deflatedDataTarball, _, _, dataTarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 	dataTarball := inflate(t, dataTarballName, deflatedDataTarball)
 
@@ -923,7 +923,7 @@ func TestDebsigsSignature(t *testing.T) {
 	info.Deb.Signature.KeyPassphrase = "hunter2"
 
 	var deb bytes.Buffer
-	err := Default.Package(info, &deb)
+	err := debPackager.Package(info, &deb)
 	require.NoError(t, err)
 
 	debBinary := extractFileFromAr(t, deb.Bytes(), "debian-binary")
@@ -943,7 +943,7 @@ func TestDebsigsSignatureError(t *testing.T) {
 	info.Deb.Signature.KeyFile = "/does/not/exist"
 
 	var deb bytes.Buffer
-	err := Default.Package(info, &deb)
+	err := debPackager.Package(info, &deb)
 	require.Error(t, err)
 
 	var expectedError *nfpm.ErrSigningFailure
@@ -958,7 +958,7 @@ func TestDpkgSigSignature(t *testing.T) {
 	info.Deb.Signature.Signer = "bob McRobert"
 
 	var deb bytes.Buffer
-	err := Default.Package(info, &deb)
+	err := debPackager.Package(info, &deb)
 	require.NoError(t, err)
 
 	signature := extractFileFromAr(t, deb.Bytes(), "_gpgbuilder")
@@ -973,7 +973,7 @@ func TestDpkgSigSignatureError(t *testing.T) {
 	info.Deb.Signature.Method = "dpkg-sig"
 
 	var deb bytes.Buffer
-	err := Default.Package(info, &deb)
+	err := debPackager.Package(info, &deb)
 	require.Error(t, err)
 
 	var expectedError *nfpm.ErrSigningFailure
@@ -991,7 +991,7 @@ func TestDisableGlobbing(t *testing.T) {
 	}
 	require.NoError(t, info.Validate())
 
-	dataTarball, _, _, tarballName, err := createDataTarball(info)
+	dataTarball, _, _, tarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
 	expectedContent, err := ioutil.ReadFile("../testdata/{file}[")
@@ -1023,7 +1023,7 @@ func TestNoDuplicateAutocreatedDirectories(t *testing.T) {
 		"./etc/foo/bar": true,
 	}
 
-	dataTarball, _, _, tarballName, err := createDataTarball(info)
+	dataTarball, _, _, tarballName, err := debPackager.createDataTarball(info)
 	require.NoError(t, err)
 
 	contents := tarContents(t, inflate(t, tarballName, dataTarball))
@@ -1054,7 +1054,7 @@ func TestNoDuplicateDirectories(t *testing.T) {
 	}
 	require.NoError(t, info.Validate())
 
-	_, _, _, _, err := createDataTarball(info)
+	_, _, _, _, err := debPackager.createDataTarball(info)
 	require.Error(t, err)
 }
 
@@ -1078,7 +1078,7 @@ func TestCompressionAlgorithms(t *testing.T) {
 
 			var deb bytes.Buffer
 
-			err := Default.Package(info, &deb)
+			err := debPackager.Package(info, &deb)
 			require.NoError(t, err)
 
 			dataTarballName := findDataTarball(t, deb.Bytes())
@@ -1309,13 +1309,13 @@ func TestEmptyButRequiredDebFields(t *testing.T) {
 		Name:    "foo",
 		Version: "v1.0.0",
 	})
-	Default.SetPackagerDefaults(item)
+	debPackager.SetPackagerDefaults(item)
 
 	require.Equal(t, "optional", item.Priority)
 	require.Equal(t, "Unset Maintainer <unset@localhost>", item.Maintainer)
 
 	var deb bytes.Buffer
-	err := Default.Package(item, &deb)
+	err := debPackager.Package(item, &deb)
 	require.NoError(t, err)
 }
 

@@ -12,10 +12,16 @@ import (
 	"github.com/goreleaser/nfpm/v2/internal/sign"
 )
 
-// Dsc is a debian source control file packager implementation.
-type Dsc struct{}
+// Source is a debian source control file packager implementation.
+type Source struct {
+	Name string
+}
 
-func (Dsc) ConventionalFileName(info *nfpm.Info) string {
+var sourcePackager = &Source{
+	Name: "source",
+}
+
+func (Source) ConventionalFileName(info *nfpm.Info) string {
 	info = ensureValidArch(info)
 
 	version := info.Version
@@ -36,14 +42,14 @@ func (Dsc) ConventionalFileName(info *nfpm.Info) string {
 }
 
 // Package writes a new dsc file to the given writer using the given info.
-func (d *Dsc) Package(info *nfpm.Info, dsc io.Writer) (err error) { // nolint: funlen
+func (d *Source) Package(info *nfpm.Info, dsc io.Writer) (err error) { // nolint: funlen
 	info = ensureValidArch(info)
 	if err = info.Validate(); err != nil {
 		return err
 	}
 
 	dscContent := &bytes.Buffer{}
-	err = writeDsc(dscContent, dscData{
+	err = writeDsc(dscContent, sourceData{
 		Info: info,
 	})
 	if err != nil {
@@ -51,9 +57,7 @@ func (d *Dsc) Package(info *nfpm.Info, dsc io.Writer) (err error) { // nolint: f
 	}
 
 	if info.Deb.Signature.KeyFile != "" {
-		var data io.Reader
-
-		signedDscContent, err := sign.PGPClearSignWithKeyID(data, info.Deb.Signature.KeyFile, info.Deb.Signature.KeyPassphrase, info.Deb.Signature.KeyID)
+		signedDscContent, err := sign.PGPClearSignWithKeyID(dscContent, info.Deb.Signature.KeyFile, info.Deb.Signature.KeyPassphrase, info.Deb.Signature.KeyID)
 		if err != nil {
 			return &nfpm.ErrSigningFailure{Err: err}
 		}
@@ -90,11 +94,11 @@ Architecture: {{.Info.Arch}}
 {{- end }}
 `
 
-type dscData struct {
+type sourceData struct {
 	Info *nfpm.Info
 }
 
-func writeDsc(w io.Writer, data dscData) error {
+func writeDsc(w io.Writer, data sourceData) error {
 	tmpl := template.New("dsc")
 	tmpl.Funcs(template.FuncMap{
 		"join": func(strs []string) string {
