@@ -3,6 +3,7 @@ package deb
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"text/template"
@@ -13,6 +14,26 @@ import (
 
 // Dsc is a debian source control file packager implementation.
 type Dsc struct{}
+
+func (Dsc) ConventionalFileName(info *nfpm.Info) string {
+	info = ensureValidArch(info)
+
+	version := info.Version
+	if info.Prerelease != "" {
+		version += "~" + info.Prerelease
+	}
+
+	if info.VersionMetadata != "" {
+		version += "+" + info.VersionMetadata
+	}
+
+	if info.Release != "" {
+		version += "-" + info.Release
+	}
+
+	// package_version_architecture.package-type
+	return fmt.Sprintf("%s_%s_%s.dsc", info.Name, version, info.Arch)
+}
 
 // Package writes a new dsc file to the given writer using the given info.
 func (d *Dsc) Package(info *nfpm.Info, dsc io.Writer) (err error) { // nolint: funlen
@@ -58,11 +79,11 @@ Maintainer: {{.Info.Maintainer}}
 {{- end }}
 {{- if .Info.Homepage}}
 Homepage: {{.Info.Homepage}}
-Standards-Version: {{.Info.Deb.Dsc.StandardsVersion}}
+Standards-Version: {{.Info.Deb.Source.StandardsVersion}}
 {{- end }}
 {{- /* Mandatory fields */}}
 Architecture: {{.Info.Arch}}
-{{- range $key, $value := .Info.Deb.Dsc.Fields }}
+{{- range $key, $value := .Info.Deb.Source.Fields }}
 {{- if $value }}
 {{$key}}: {{$value}}
 {{- end }}

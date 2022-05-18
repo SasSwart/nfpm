@@ -31,6 +31,7 @@ const packagerName = "deb"
 // nolint: gochecknoinits
 func init() {
 	nfpm.RegisterPackager(packagerName, Default)
+	nfpm.RegisterPackager("dsc", &Dsc{})
 }
 
 // nolint: gochecknoglobals
