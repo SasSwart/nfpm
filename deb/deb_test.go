@@ -453,8 +453,10 @@ func TestDebRules(t *testing.T) {
 			Section:     "default",
 			Overridables: nfpm.Overridables{
 				Deb: nfpm.Deb{
-					Scripts: nfpm.DebScripts{
-						Rules: "foo.sh",
+					DebBinary: nfpm.DebBinary{
+						Scripts: nfpm.DebScripts{
+							Rules: "foo.sh",
+						},
 					},
 				},
 			},
@@ -622,13 +624,15 @@ func TestDebTriggers(t *testing.T) {
 		Version:     "1.0.0",
 		Overridables: nfpm.Overridables{
 			Deb: nfpm.Deb{
-				Triggers: nfpm.DebTriggers{
-					Interest:      []string{"trigger1", "trigger2"},
-					InterestAwait: []string{"trigger3"},
-					// InterestNoAwait omitted
-					// Activate omitted
-					ActivateAwait:   []string{"trigger4"},
-					ActivateNoAwait: []string{"trigger5", "trigger6"},
+				DebBinary: nfpm.DebBinary{
+					Triggers: nfpm.DebTriggers{
+						Interest:      []string{"trigger1", "trigger2"},
+						InterestAwait: []string{"trigger3"},
+						// InterestNoAwait omitted
+						// Activate omitted
+						ActivateAwait:   []string{"trigger4"},
+						ActivateNoAwait: []string{"trigger5", "trigger6"},
+					},
 				},
 			},
 		},
@@ -1346,9 +1350,11 @@ func TestFields(t *testing.T) {
 			Homepage:    "http://carlosbecker.com",
 			Overridables: nfpm.Overridables{
 				Deb: nfpm.Deb{
-					Fields: map[string]string{
-						"Bugs":  "https://github.com/goreleaser/nfpm/issues",
-						"Empty": "",
+					DebBinary: nfpm.DebBinary{
+						Fields: map[string]string{
+							"Bugs":  "https://github.com/goreleaser/nfpm/issues",
+							"Empty": "",
+						},
 					},
 				},
 			},
