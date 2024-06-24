@@ -321,13 +321,25 @@ type APKScripts struct {
 
 // Deb is custom configs that are only available on deb packages.
 type Deb struct {
+	DebBinary
+	Signature DebSignature `yaml:"signature,omitempty" jsonschema:"title=signature"`
+	Source    DebSource    `yaml:"source,omitempty" jsonschema:"title=source"`
+}
+
+type DebBinary struct {
 	Arch        string            `yaml:"arch,omitempty" jsonschema:"title=architecture in deb nomenclature"`
 	Scripts     DebScripts        `yaml:"scripts,omitempty" jsonschema:"title=scripts"`
 	Triggers    DebTriggers       `yaml:"triggers,omitempty" jsonschema:"title=triggers"`
 	Breaks      []string          `yaml:"breaks,omitempty" jsonschema:"title=breaks"`
-	Signature   DebSignature      `yaml:"signature,omitempty" jsonschema:"title=signature"`
 	Compression string            `yaml:"compression,omitempty" jsonschema:"title=compression algorithm to be used,enum=gzip,enum=xz,enum=none,default=gzip"`
 	Fields      map[string]string `yaml:"fields,omitempty" jsonschema:"title=fields"`
+}
+
+type DebSource struct {
+	Fields           map[string]string `yaml:"fields,omitempty" jsonschema:"title=fields"`
+	StandardsVersion string            `yaml:"standards_version,omitempty" jsonschema:"title=standards_version"`
+	Contents         files.Contents    `yaml:"contents,omitempty" jsonschema:"title=files to add to the package"`
+	BinaryPackages   []DebBinary       `yaml:"contents,omitempty" jsonschema:"title=files to add to the package"`
 }
 
 type DebSignature struct {
